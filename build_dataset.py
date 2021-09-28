@@ -11,15 +11,18 @@ INDEX_URL = 'http://s.idigbio.org/idigbio-downloads/3f37324f-a860-4686-998c-9f6f
 
 
 def get_record(uri, extract_path):
-    file_prefix = uri.split('?')[0]
+    file_prefix = uri.split('?')[0].split('/')[-1]
     search_path = pathlib.Path(extract_path, file_prefix)
-    if len(glob.glob(f'{search_path}*')) < 1:
+    glob_list = glob.glob(f'{search_path}*')
+    if len(glob_list) < 1:
         response = requests.get(uri, allow_redirects=True)
         file_name = response.url.split('/')[-1]
         file_path = pathlib.Path(extract_path, file_name)
         with open(file_path, 'wb') as file:
             file.write(response.content)
         print(f"Downloaded: {file_path}")
+    else:
+        print(f"{glob_list[0]} already exists.")
 
 
 def get_data():
