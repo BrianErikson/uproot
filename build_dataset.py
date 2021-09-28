@@ -46,7 +46,10 @@ def get_data():
 
     uris = df['ac:accessURI'].tolist()
     for uri in uris:
-        get_record(uri, extract_path)
+        try:
+            get_record(uri, extract_path)
+        except requests.exceptions.RequestException as e:
+            print(e)
 
 
 if __name__ == '__main__':
