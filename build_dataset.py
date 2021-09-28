@@ -1,7 +1,10 @@
+import asyncio
 import os.path
 import io
 import pathlib
 import glob
+from concurrent.futures import ProcessPoolExecutor
+
 import requests
 import zipfile
 import pandas
@@ -11,18 +14,21 @@ INDEX_URL = 'http://s.idigbio.org/idigbio-downloads/3f37324f-a860-4686-998c-9f6f
 
 
 def get_record(uri, extract_path):
-    file_prefix = uri.split('?')[0].split('/')[-1]
-    search_path = pathlib.Path(extract_path, file_prefix)
-    glob_list = glob.glob(f'{search_path}*')
-    if len(glob_list) < 1:
-        response = requests.get(uri, allow_redirects=True)
-        file_name = response.url.split('/')[-1]
-        file_path = pathlib.Path(extract_path, file_name)
-        with open(file_path, 'wb') as file:
-            file.write(response.content)
-        print(f"Downloaded: {file_path}")
-    else:
-        print(f"{glob_list[0]} already exists.")
+    try:
+        file_prefix = uri.split('?')[0].split('/')[-1]
+        search_path = pathlib.Path(extract_path, file_prefix)
+        glob_list = glob.glob(f'{search_path}*')
+        if len(glob_list) < 1:
+            response = requests.get(uri, allow_redirects=True)
+            file_name = response.url.split('/')[-1]
+            file_path = pathlib.Path(extract_path, file_name)
+            with open(file_path, 'wb') as file:
+                file.write(response.content)
+            print(f"Downloaded: {file_path}")
+        else:
+            print(f"{glob_list[0]} already exists.")
+    except requests.exceptions.RequestException as e:
+        print(e)
 
 
 def get_data():
@@ -45,11 +51,13 @@ def get_data():
     df = pandas.read_csv(csv_path)
 
     uris = df['ac:accessURI'].tolist()
+    loop = asyncio.get_event_loop()
+    tasks = []
+    executor = ProcessPoolExecutor()
     for uri in uris:
-        try:
-            get_record(uri, extract_path)
-        except requests.exceptions.RequestException as e:
-            print(e)
+        tasks.append(loop.run_in_executor(executor, get_record, uri, extract_path))
+    loop.run_until_complete(asyncio.wait(tasks))
+    loop.close()
 
 
 if __name__ == '__main__':
